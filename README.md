@@ -98,6 +98,7 @@ Quando a luz está muito intensa, o buzzer emite um som por alguns segundos como
 * Felipe de Oliveira Zimmermann - 570863
 * Izabela Pordeus de Almeida - 570316
 * João Victor Santos Souza - 569949
+* Leonardo Henrique Basseti - 574039
 * Matheus Lopes Lima - 571458
 
 ---
