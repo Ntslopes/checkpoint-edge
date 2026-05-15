@@ -1,96 +1,119 @@
 # checkpoint-edge
+# 🌿 Sistema de Monitoramento Ambiental com Arduino
 
-# 📦 Projeto: Sensor de Luminosidade com Arduino (LDR + LEDs + Buzzer)
-
-## 🧠 Descrição
-
-Este projeto utiliza um sensor de luminosidade (LDR) conectado a um Arduino para monitorar a intensidade da luz ambiente e reagir de forma visual e sonora.
-
-O sistema classifica a luminosidade em três níveis:
-
-* **Baixa luminosidade** → LED verde acende
-* **Média luminosidade** → LED amarelo acende
-* **Alta luminosidade** → LED vermelho acende + buzzer dispara
-
-Quando a luz está muito intensa, o buzzer emite um som por alguns segundos como alerta.
+Sistema embarcado para monitoramento de **luminosidade**, **temperatura** e **umidade** em tempo real, com alertas visuais (LEDs), sonoros (buzzer) e exibição em display LCD I2C.
 
 ---
 
-## ⚙️ Componentes Utilizados
+## 📦 Componentes Necessários
 
-* 1x Arduino Uno (ou compatível)
-* 1x LDR (fotoresistor)
-* 3x LEDs (verde, amarelo, vermelho)
-* 3x Resistores (220Ω para os LEDs)
-* 1x Resistor (10kΩ para o LDR – divisor de tensão)
-* 1x Buzzer
-* Jumpers (fios)
-* 1x Protoboard
-
----
-
-## 🔌 Funcionamento
-
-1. O LDR mede a luminosidade do ambiente.
-2. O valor analógico é lido pelo pino A5 do Arduino.
-3. Esse valor é ajustado com a função `map()` para melhorar a precisão.
-4. Dependendo do valor obtido:
-
-   * **0 – 299** → LED verde (baixa luz)
-   * **300 – 600** → LED amarelo (luz média)
-   * **601 – 1023** → LED vermelho + buzzer (luz alta)
+| Componente | Quantidade | Pino |
+|---|---|---|
+| Arduino Uno (ou compatível) | 1 | — |
+| LDR (sensor de luz) | 1 | A0 |
+| TMP36 (sensor de temperatura) | 1 | A1 |
+| Potenciômetro (simula umidade) | 1 | A2 |
+| LED Verde | 1 | D8 |
+| LED Amarelo | 1 | D9 |
+| LED Vermelho | 1 | D10 |
+| Buzzer | 1 | D7 |
+| Display LCD 16x2 (I2C, 0x27) | 1 | SDA/SCL |
 
 ---
 
-## 🧪 Como Reproduzir o Projeto
+## 📚 Bibliotecas Utilizadas
 
-### 1. Montagem do Circuito
+- [`Wire.h`](https://www.arduino.cc/en/reference/wire) — comunicação I2C (nativa do Arduino)
+- [`LiquidCrystal_I2C`](https://github.com/johnrickman/LiquidCrystal_I2C) — controle do display LCD via I2C
 
-* Conecte o LDR em um divisor de tensão com um resistor de 10kΩ:
-
-  * Um lado no **5V**
-  * Outro lado no **GND**
-  * Meio (entre LDR e resistor) → **A5**
-
-* LEDs:
-
-  * Verde → pino 8
-  * Amarelo → pino 9
-  * Vermelho → pino 10
-    (todos com resistor de 220Ω)
-
-* Buzzer:
-
-  * Positivo → pino digital
-  * Negativo → GND
+Para instalar a biblioteca do LCD: **Arduino IDE → Gerenciar Bibliotecas → buscar "LiquidCrystal I2C"**
 
 ---
 
-### 2. Upload do Código
+## ⚙️ Como Funciona
 
-1. Abra a IDE do Arduino
-2. Cole o código fornecido
-3. Selecione a placa correta (Arduino Uno)
-4. Envie para o Arduino
+O sistema realiza leituras contínuas dos três sensores, calcula a **média de 5 amostras** e exibe os resultados em sequência no LCD. LEDs e buzzer são acionados conforme os limites definidos.
+
+### 💡 Luminosidade (LDR — A0)
+
+| Faixa (valor mapeado) | Status | LED | Buzzer |
+|---|---|---|---|
+| < 300 | Ambiente Escuro | 🟢 Verde | OFF |
+| 300 – 800 | Meia Luz | 🟡 Amarelo | OFF |
+| > 800 | Muito Claro | 🔴 Vermelho | ON |
+
+> O valor bruto do LDR é remapeado de `[207, 1012]` para `[0, 1023]` para calibração do sensor.
+
+---
+
+### 🌡️ Temperatura (TMP36 — A1)
+
+A tensão lida é convertida em temperatura pela fórmula:
+
+```
+Voltagem = leitura * 5.0 / 1024.0
+Temperatura (°C) = (Voltagem - 0.5) * 100
+```
+
+| Faixa (°C) | Status | LED | Buzzer |
+|---|---|---|---|
+| 10 – 15 | Temperatura OK | — | OFF |
+| > 15 | Temperatura Alta | 🟡 Amarelo | ON |
+| < 10 | Temperatura Baixa | 🟡 Amarelo | ON |
 
 ---
 
-### 3. Teste
+### 💧 Umidade (Potenciômetro — A2)
 
-* Cubra o LDR → LED verde deve acender
-* Luz ambiente → LED amarelo
-* Luz forte (lanterna/celular) → LED vermelho + buzzer
+O potenciômetro simula um sensor de umidade, com valor mapeado de `[0, 1023]` para `[0, 100]%`.
+
+| Faixa (%) | Status | LED | Buzzer |
+|---|---|---|---|
+| 50 – 70 | Umidade OK | — | OFF |
+| > 70 | Umidade Alta | 🔴 Vermelho | ON |
+| < 50 | Umidade Baixa | 🔴 Vermelho | ON |
+
+---
+
+## 🖥️ Saída Serial
+
+Os dados são enviados ao monitor serial (9600 baud) no seguinte formato:
+
+```
+Luz: 512 | Temp: 23.5 | Umidade: 65%
+```
 
 ---
 
-## 💡 Aplicações
+## 🔁 Fluxo do Loop Principal
 
-* Monitoramento de luz ambiente
-* Adega inteligente (controle de luminosidade)
-* Sistemas de alerta
-* Automação residencial
+```
+1. Coleta 5 amostras de cada sensor (intervalo de 100ms entre cada)
+2. Calcula a média das leituras
+3. Envia dados ao Serial Monitor
+4. Exibe status de Luminosidade no LCD por 2 segundos
+5. Exibe status de Temperatura no LCD por 2 segundos
+6. Exibe status de Umidade no LCD por 1 segundo
+7. Reinicia o ciclo
+```
 
 ---
+
+## 🚀 Como Usar
+
+1. Monte o circuito conforme a tabela de pinos acima.
+2. Instale a biblioteca `LiquidCrystal_I2C` na Arduino IDE.
+3. Carregue o código no Arduino.
+4. Abra o **Monitor Serial** (9600 baud) para acompanhar as leituras.
+5. O LCD exibirá **"Sistema Iniciado"** por 2 segundos e então começará o monitoramento.
+
+---
+
+## 📝 Observações
+
+- O endereço I2C padrão do LCD é `0x27`. Caso o display não funcione, tente `0x3F`.
+- O potenciômetro em A2 é uma simulação — em um sistema real, substitua por um sensor de umidade como o **DHT11** ou **DHT22**.
+- Os limites de temperatura (10–15°C) são adequados para ambientes de armazenamento refrigerado (ex: adegas, câmaras frias). Ajuste conforme sua aplicação.
 
 ## 👥 Participantes
 
